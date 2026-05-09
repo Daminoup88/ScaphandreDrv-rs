@@ -1,0 +1,18 @@
+[package]
+name = "scaphandre-driver-rs"
+version = "1.0.0"
+edition = "2024"
+license = "Apache-2.0"
+description = "Minimal Rust wrapper around the Scaphandre Windows RAPL driver"
+readme = "README.md"
+keywords = ["windows", "rapl", "msr", "driver", "scaphandre"]
+categories = ["os::windows-apis", "hardware-support"]
+
+[dependencies]
+windows-sys = { version = "0.61.2", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Storage_FileSystem",
+  "Win32_System_IO",
+  "Win32_System_Services",
+] }

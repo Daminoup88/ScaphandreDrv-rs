@@ -1,0 +1,31 @@
+name: Check driver upstream
+
+on:
+  schedule:
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check latest driver release
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="v0.0.4"
+          latest=$(curl -fsSL https://api.github.com/repos/hubblo-org/windows-rapl-driver/releases/latest | grep -m1 '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+
+          if [ -z "$latest" ]; then
+            echo "Unable to determine latest release tag."
+            exit 1
+          fi
+
+          if [ "$latest" != "$current" ]; then
+            echo "New upstream release detected: $latest (current $current)"
+            exit 1
+          fi
+
+          echo "Upstream release matches current: $current"
