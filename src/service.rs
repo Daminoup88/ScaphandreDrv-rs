@@ -12,9 +12,10 @@ use windows_sys::Win32::{
         GetLastError,
     },
     System::Services::{
-        CloseServiceHandle, ControlService, CreateServiceW, DeleteService, OpenSCManagerW, OpenServiceW, SC_HANDLE,
-        SC_MANAGER_ALL_ACCESS, SC_MANAGER_CONNECT, SERVICE_ALL_ACCESS, SERVICE_CONTROL_STOP, SERVICE_DEMAND_START,
-        SERVICE_ERROR_NORMAL, SERVICE_KERNEL_DRIVER, SERVICE_QUERY_STATUS, SERVICE_STATUS, StartServiceW,
+        ChangeServiceConfigW, CloseServiceHandle, ControlService, CreateServiceW, DeleteService, OpenSCManagerW,
+        OpenServiceW, SC_HANDLE, SC_MANAGER_ALL_ACCESS, SC_MANAGER_CONNECT, SERVICE_ALL_ACCESS, SERVICE_AUTO_START,
+        SERVICE_CONTROL_STOP, SERVICE_ERROR_NORMAL, SERVICE_KERNEL_DRIVER, SERVICE_NO_CHANGE, SERVICE_QUERY_STATUS,
+        SERVICE_START, SERVICE_STATUS, StartServiceW,
     },
 };
 
@@ -69,6 +70,48 @@ fn hash_bytes(bytes: &[u8]) -> u64 {
     hasher.finish()
 }
 
+/// Starts an already-installed, stopped service.
+pub(crate) fn start() -> Result<()> {
+    let manager = open_service_manager(SC_MANAGER_CONNECT)?;
+    let service_name_w = to_utf16_z(SERVICE_NAME);
+    let service = unsafe { OpenServiceW(manager, service_name_w.as_ptr(), SERVICE_START) };
+
+    if service.is_null() {
+        let code = unsafe { GetLastError() };
+        unsafe { CloseServiceHandle(manager) };
+        return Err(if code == ERROR_SERVICE_DOES_NOT_EXIST {
+            Error::NotInstalled
+        } else {
+            Error::WinApi {
+                context: "OpenServiceW",
+                code,
+            }
+        });
+    }
+
+    let started = unsafe { StartServiceW(service, 0, null()) };
+    let result = if started == 0 {
+        let code = unsafe { GetLastError() };
+        if code == ERROR_SERVICE_ALREADY_RUNNING {
+            Ok(())
+        } else {
+            Err(Error::WinApi {
+                context: "StartServiceW",
+                code,
+            })
+        }
+    } else {
+        Ok(())
+    };
+
+    unsafe {
+        CloseServiceHandle(service);
+        CloseServiceHandle(manager);
+    }
+
+    result
+}
+
 pub(crate) fn install() -> Result<()> {
     let outdated = needs_update()?;
     if outdated {
@@ -89,7 +132,7 @@ pub(crate) fn install() -> Result<()> {
             display_name_w.as_ptr(),
             SERVICE_ALL_ACCESS,
             SERVICE_KERNEL_DRIVER,
-            SERVICE_DEMAND_START,
+            SERVICE_AUTO_START,
             SERVICE_ERROR_NORMAL,
             driver_path_w.as_ptr(),
             null(),
@@ -108,6 +151,30 @@ pub(crate) fn install() -> Result<()> {
                 unsafe { CloseServiceHandle(manager) };
                 return Err(last_error("OpenServiceW"));
             }
+            // Update the service configuration to auto-start if already exists
+            let changed = unsafe {
+                ChangeServiceConfigW(
+                    existing,
+                    SERVICE_NO_CHANGE,
+                    SERVICE_AUTO_START,
+                    SERVICE_NO_CHANGE,
+                    driver_path_w.as_ptr(),
+                    null(),
+                    null_mut(),
+                    null(),
+                    null(),
+                    null(),
+                    null(),
+                )
+            };
+            if changed == 0 {
+                let code = unsafe { GetLastError() };
+                return Err(Error::WinApi {
+                    context: "ChangeServiceConfigW",
+                    code,
+                });
+            }
+
             existing
         } else {
             unsafe { CloseServiceHandle(manager) };
@@ -120,27 +187,10 @@ pub(crate) fn install() -> Result<()> {
         service
     };
 
-    let started = unsafe { StartServiceW(service_handle, 0, null()) };
-    if started == 0 {
-        let code = unsafe { GetLastError() };
-        if code != ERROR_SERVICE_ALREADY_RUNNING {
-            unsafe {
-                CloseServiceHandle(service_handle);
-                CloseServiceHandle(manager);
-            }
-            return Err(Error::WinApi {
-                context: "StartServiceW",
-                code,
-            });
-        }
-    }
+    unsafe { CloseServiceHandle(service_handle) };
+    unsafe { CloseServiceHandle(manager) };
 
-    unsafe {
-        CloseServiceHandle(service_handle);
-        CloseServiceHandle(manager);
-    }
-
-    Ok(())
+    start()
 }
 
 /// Stop the service so the backing `.sys` file can be replaced.

@@ -27,7 +27,7 @@ ScaphandreDriver::uninstall()?;
 
 - Windows only.
 - `new()` opens the device handle. It does not install the driver.
-- `install()` and `uninstall()` require Administrator privileges.
+- `install()`, `uninstall()` and `start()` require Administrator privileges.
 - `is_installed()` can be used without admin rights.
 
 ## Example

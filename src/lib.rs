@@ -46,6 +46,11 @@ impl ScaphandreDriver {
         service::needs_update()
     }
 
+    /// Starts an already-installed, stopped driver service (requires Administrator rights).
+    pub fn start() -> Result<()> {
+        service::start()
+    }
+
     /// Closes the driver handle.
     pub fn close(&mut self) -> Result<()> {
         self.device.close()
