@@ -1,4 +1,4 @@
-# scaphandre-driver-rs
+# scaphandre-driver-rs [![](https://img.shields.io/crates/v/scaphandre-driver-rs.svg)](https://crates.io/crates/scaphandre-driver-rs)
 
 Minimal Rust wrapper around the Scaphandre Windows RAPL driver.
 
