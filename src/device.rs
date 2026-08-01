@@ -1,19 +1,18 @@
-use std::ffi::c_void;
-use std::mem::size_of;
-use std::ptr::null_mut;
+use std::{ffi::c_void, mem::size_of, ptr::null_mut};
 
-use windows_sys::Win32::Foundation::{
-    CloseHandle, GetLastError, ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND, HANDLE,
-    INVALID_HANDLE_VALUE,
+use windows_sys::Win32::{
+    Foundation::{CloseHandle, ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND, GetLastError, HANDLE, INVALID_HANDLE_VALUE},
+    Storage::FileSystem::{
+        CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+        OPEN_EXISTING,
+    },
+    System::IO::DeviceIoControl,
 };
-use windows_sys::Win32::Storage::FileSystem::{
-    CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_READ,
-    FILE_SHARE_WRITE, OPEN_EXISTING,
-};
-use windows_sys::Win32::System::IO::DeviceIoControl;
 
-use crate::error::{last_error, Error, Result};
-use crate::util::to_utf16_z;
+use crate::{
+    error::{Error, Result, last_error},
+    util::to_utf16_z,
+};
 
 const DEVICE_PATH: &str = r"\\.\ScaphandreDriver";
 

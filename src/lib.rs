@@ -40,6 +40,12 @@ impl ScaphandreDriver {
         service::is_installed()
     }
 
+    /// Returns whether the deployed driver binary is older than the one
+    /// bundled in this crate build (compared by content hash).
+    pub fn needs_update() -> Result<bool> {
+        service::needs_update()
+    }
+
     /// Closes the driver handle.
     pub fn close(&mut self) -> Result<()> {
         self.device.close()

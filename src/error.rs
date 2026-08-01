@@ -5,13 +5,8 @@ use windows_sys::Win32::Foundation::GetLastError;
 #[derive(Debug)]
 pub enum Error {
     Io(std::io::Error),
-    WinApi {
-        context: &'static str,
-        code: u32,
-    },
-    DriverProtocol {
-        context: &'static str,
-    },
+    WinApi { context: &'static str, code: u32 },
+    DriverProtocol { context: &'static str },
     NotInstalled,
     NotRunning,
     DeviceClosed,

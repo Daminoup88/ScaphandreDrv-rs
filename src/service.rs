@@ -1,20 +1,27 @@
-use std::fs;
-use std::path::PathBuf;
-use std::ptr::{null, null_mut};
-
-use windows_sys::Win32::Foundation::{
-    GetLastError, ERROR_ALREADY_EXISTS, ERROR_SERVICE_ALREADY_RUNNING, ERROR_SERVICE_DOES_NOT_EXIST,
-    ERROR_SERVICE_EXISTS,
-};
-use windows_sys::Win32::System::Services::{
-    CloseServiceHandle, ControlService, CreateServiceW, DeleteService, OpenSCManagerW,
-    OpenServiceW, StartServiceW, SC_HANDLE, SC_MANAGER_ALL_ACCESS, SC_MANAGER_CONNECT,
-    SERVICE_ALL_ACCESS, SERVICE_CONTROL_STOP, SERVICE_DEMAND_START, SERVICE_ERROR_NORMAL,
-    SERVICE_KERNEL_DRIVER, SERVICE_QUERY_STATUS, SERVICE_STATUS,
+use std::{
+    collections::hash_map::DefaultHasher,
+    fs,
+    hash::{Hash, Hasher},
+    path::PathBuf,
+    ptr::{null, null_mut},
 };
 
-use crate::error::{last_error, Error, Result};
-use crate::util::to_utf16_z;
+use windows_sys::Win32::{
+    Foundation::{
+        ERROR_ALREADY_EXISTS, ERROR_SERVICE_ALREADY_RUNNING, ERROR_SERVICE_DOES_NOT_EXIST, ERROR_SERVICE_EXISTS,
+        GetLastError,
+    },
+    System::Services::{
+        CloseServiceHandle, ControlService, CreateServiceW, DeleteService, OpenSCManagerW, OpenServiceW, SC_HANDLE,
+        SC_MANAGER_ALL_ACCESS, SC_MANAGER_CONNECT, SERVICE_ALL_ACCESS, SERVICE_CONTROL_STOP, SERVICE_DEMAND_START,
+        SERVICE_ERROR_NORMAL, SERVICE_KERNEL_DRIVER, SERVICE_QUERY_STATUS, SERVICE_STATUS, StartServiceW,
+    },
+};
+
+use crate::{
+    error::{Error, Result, last_error},
+    util::to_utf16_z,
+};
 
 const DRIVER_BYTES: &[u8] = include_bytes!("../ScaphandreDrv.sys");
 const SERVICE_NAME: &str = "ScaphandreDrv";
@@ -46,8 +53,29 @@ pub(crate) fn is_installed() -> Result<bool> {
     Ok(true)
 }
 
+/// Returns whether the deployed driver binary differs from the one embedded
+/// in this crate build. Returns `false` if nothing is deployed yet.
+pub(crate) fn needs_update() -> Result<bool> {
+    match fs::read(driver_binary_path()) {
+        Ok(existing) => Ok(hash_bytes(&existing) != hash_bytes(DRIVER_BYTES)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(e.into()),
+    }
+}
+
+fn hash_bytes(bytes: &[u8]) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    bytes.hash(&mut hasher);
+    hasher.finish()
+}
+
 pub(crate) fn install() -> Result<()> {
-    let driver_path = deploy_driver_binary()?;
+    let outdated = needs_update()?;
+    if outdated {
+        stop_service();
+    }
+
+    let driver_path = deploy_driver_binary(outdated)?;
     let manager = open_service_manager(SC_MANAGER_ALL_ACCESS)?;
 
     let service_name_w = to_utf16_z(SERVICE_NAME);
@@ -115,6 +143,29 @@ pub(crate) fn install() -> Result<()> {
     Ok(())
 }
 
+/// Stop the service so the backing `.sys` file can be replaced.
+fn stop_service() {
+    let Ok(manager) = open_service_manager(SC_MANAGER_ALL_ACCESS) else {
+        return;
+    };
+    let service_name_w = to_utf16_z(SERVICE_NAME);
+    let service = unsafe { OpenServiceW(manager, service_name_w.as_ptr(), SERVICE_ALL_ACCESS) };
+    if !service.is_null() {
+        let mut status = SERVICE_STATUS {
+            dwServiceType: 0,
+            dwCurrentState: 0,
+            dwControlsAccepted: 0,
+            dwWin32ExitCode: 0,
+            dwServiceSpecificExitCode: 0,
+            dwCheckPoint: 0,
+            dwWaitHint: 0,
+        };
+        let _ = unsafe { ControlService(service, SERVICE_CONTROL_STOP, &mut status) };
+        unsafe { CloseServiceHandle(service) };
+    }
+    unsafe { CloseServiceHandle(manager) };
+}
+
 pub(crate) fn uninstall() -> Result<()> {
     let manager = open_service_manager(SC_MANAGER_ALL_ACCESS)?;
     let service_name_w = to_utf16_z(SERVICE_NAME);
@@ -176,13 +227,13 @@ fn open_service_manager(access: u32) -> Result<SC_HANDLE> {
     Ok(manager)
 }
 
-fn deploy_driver_binary() -> Result<PathBuf> {
+fn deploy_driver_binary(force_rewrite: bool) -> Result<PathBuf> {
     let path = driver_binary_path();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
 
-    if !path.exists() {
+    if force_rewrite || !path.exists() {
         fs::write(&path, DRIVER_BYTES)?;
     }
 

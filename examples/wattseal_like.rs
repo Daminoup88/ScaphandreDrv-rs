@@ -1,7 +1,9 @@
 #![cfg(windows)]
 
-use std::thread;
-use std::time::{Duration, Instant};
+use std::{
+    thread,
+    time::{Duration, Instant},
+};
 
 use scaphandre_driver_rs::ScaphandreDriver;
 
