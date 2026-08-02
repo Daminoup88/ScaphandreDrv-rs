@@ -1,6 +1,6 @@
 [package]
 name = "scaphandre-driver-rs"
-version = "1.0.6"
+version = "1.0.7"
 edition = "2024"
 license = "Apache-2.0"
 description = "Minimal Rust wrapper around the Scaphandre Windows RAPL driver"
