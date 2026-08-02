@@ -57,8 +57,13 @@ impl ScaphandreDriver {
     }
 
     /// Uninstalls the driver service (requires Administrator rights).
+    pub fn uninstall_service() -> Result<()> {
+        service::uninstall()
+    }
+
+    /// Uninstalls the driver service from a running driver instance (requires Administrator rights).
     pub fn uninstall(&mut self) -> Result<()> {
-        self.close()?;
+        let _ = self.close();
         service::uninstall()
     }
 
