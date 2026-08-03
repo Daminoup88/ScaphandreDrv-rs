@@ -1,12 +1,17 @@
 [package]
-name = "scaphandre-driver-rs"
-version = "1.0.7"
+name = "msr-driver-rs"
+version = "1.0.0"
 edition = "2024"
 license = "Apache-2.0"
-description = "Minimal Rust wrapper around the Scaphandre Windows RAPL driver"
+description = "Minimal Rust wrapper around Windows MSR drivers (Scaphandre or WinRing0)"
 readme = "README.md"
-keywords = ["windows", "rapl", "msr", "driver", "scaphandre"]
+keywords = ["windows", "rapl", "msr", "driver", "scaphandre", "winring0"]
 categories = ["os::windows-apis", "hardware-support"]
+
+[features]
+default = ["scaphandre"]
+scaphandre = []
+winring0 = []
 
 [dependencies]
 windows-sys = { version = "0.61.2", features = [

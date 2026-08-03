@@ -24,9 +24,19 @@ use crate::{
     util::to_utf16_z,
 };
 
+#[cfg(feature = "scaphandre")]
 const DRIVER_BYTES: &[u8] = include_bytes!("../ScaphandreDrv.sys");
+#[cfg(feature = "scaphandre")]
 const SERVICE_NAME: &str = "ScaphandreDrv";
+#[cfg(feature = "scaphandre")]
 const SERVICE_DISPLAY_NAME: &str = "Scaphandre Driver Service";
+
+#[cfg(feature = "winring0")]
+const DRIVER_BYTES: &[u8] = include_bytes!("../WinRing0x64.sys");
+#[cfg(feature = "winring0")]
+const SERVICE_NAME: &str = "WinRing0_1_2_0";
+#[cfg(feature = "winring0")]
+const SERVICE_DISPLAY_NAME: &str = "Rust WinRing0 Driver Service";
 
 pub(crate) fn is_installed() -> Result<bool> {
     let manager = open_service_manager(SC_MANAGER_CONNECT)?;
@@ -297,7 +307,15 @@ fn remove_driver_binary() {
 
 fn driver_binary_path() -> PathBuf {
     let mut path = std::env::temp_dir();
-    path.push("scaphandre-driver-rs");
-    path.push("ScaphandreDrv.sys");
+    #[cfg(feature = "scaphandre")]
+    {
+        path.push("msr-driver-rs");
+        path.push("ScaphandreDrv.sys");
+    }
+    #[cfg(feature = "winring0")]
+    {
+        path.push("msr-driver-rs");
+        path.push("WinRing0x64.sys");
+    }
     path
 }
