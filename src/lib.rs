@@ -1,7 +1,13 @@
 #![cfg_attr(not(windows), allow(dead_code, unused_imports))]
 
 #[cfg(not(windows))]
-compile_error!("scaphandre-driver-rs supports Windows only");
+compile_error!("msr-driver-rs supports Windows only");
+
+#[cfg(all(feature = "scaphandre", feature = "winring0"))]
+compile_error!("Cannot enable both 'scaphandre' and 'winring0' features at the same time");
+
+#[cfg(not(any(feature = "scaphandre", feature = "winring0")))]
+compile_error!("At least one of 'scaphandre' or 'winring0' features must be enabled");
 
 mod device;
 mod error;
@@ -10,12 +16,14 @@ mod util;
 
 pub use crate::error::{Error, Result};
 
-/// Handle to the Scaphandre Windows RAPL driver device.
-pub struct ScaphandreDriver {
+/// Handle to the Windows MSR driver device.
+///
+/// By default, this uses the Scaphandre driver. Enable the `winring0` feature to use WinRing0 instead (mutually exclusive).
+pub struct MsrDriver {
     device: device::DeviceHandle,
 }
 
-impl ScaphandreDriver {
+impl MsrDriver {
     /// Opens the device handle. The driver must already be installed and running.
     pub fn new() -> Result<Self> {
         match device::DeviceHandle::open() {

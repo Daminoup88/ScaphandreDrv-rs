@@ -14,7 +14,11 @@ use crate::{
     util::to_utf16_z,
 };
 
-const DEVICE_PATH: &str = r"\\.\ScaphandreDriver";
+#[cfg(feature = "scaphandre")]
+const DEVICE_PATH: &str = r"\\.\\ScaphandreDriver";
+
+#[cfg(feature = "winring0")]
+const DEVICE_PATH: &str = r"\\.\\WinRing0_1_2_0";
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -62,35 +66,69 @@ impl DeviceHandle {
             return Err(Error::DeviceClosed);
         }
 
-        let mut request = DriverRequest {
-            msr_register,
-            cpu_index,
-        };
-
         let mut value: u64 = 0;
         let mut bytes_returned: u32 = 0;
 
-        let ok = unsafe {
-            DeviceIoControl(
-                self.handle,
-                0,
-                &mut request as *mut DriverRequest as *mut c_void,
-                size_of::<DriverRequest>() as u32,
-                &mut value as *mut u64 as *mut c_void,
-                size_of::<u64>() as u32,
-                &mut bytes_returned,
-                null_mut(),
-            )
-        };
+        #[cfg(feature = "scaphandre")]
+        {
+            let mut request = DriverRequest {
+                msr_register,
+                cpu_index,
+            };
 
-        if ok == 0 {
-            return Err(last_error("DeviceIoControl"));
+            let ok = unsafe {
+                DeviceIoControl(
+                    self.handle,
+                    0,
+                    &mut request as *mut DriverRequest as *mut c_void,
+                    size_of::<DriverRequest>() as u32,
+                    &mut value as *mut u64 as *mut c_void,
+                    size_of::<u64>() as u32,
+                    &mut bytes_returned,
+                    null_mut(),
+                )
+            };
+
+            if ok == 0 {
+                return Err(last_error("DeviceIoControl"));
+            }
+
+            if bytes_returned != size_of::<u64>() as u32 {
+                return Err(Error::DriverProtocol {
+                    context: "unexpected output size",
+                });
+            }
         }
 
-        if bytes_returned != size_of::<u64>() as u32 {
-            return Err(Error::DriverProtocol {
-                context: "unexpected output size",
-            });
+        #[cfg(feature = "winring0")]
+        {
+            // WinRing0 OLS_READ_MSR IOCTL: device_type=40000, function=0x821, method=BUFFERED, access=ANY
+            const IOCTL_READ_MSR: u32 = (40000 << 16) | (0 << 14) | (0x821 << 2) | 0;
+
+            let mut msr = msr_register;
+
+            let ok = unsafe {
+                DeviceIoControl(
+                    self.handle,
+                    IOCTL_READ_MSR,
+                    &mut msr as *mut u32 as *mut c_void,
+                    size_of::<u32>() as u32,
+                    &mut value as *mut u64 as *mut c_void,
+                    size_of::<u64>() as u32,
+                    &mut bytes_returned,
+                    null_mut(),
+                )
+            };
+
+            if ok == 0 {
+                return Err(last_error("DeviceIoControl"));
+            }
+
+            if bytes_returned != size_of::<u64>() as u32 {
+                return Err(Error::DriverProtocol {
+                    context: "unexpected output size",
+                });
+            }
         }
 
         Ok(value)

@@ -5,18 +5,18 @@ use std::{
     time::{Duration, Instant},
 };
 
-use scaphandre_driver_rs::ScaphandreDriver;
+use msr_driver_rs::MsrDriver;
 
 const MSR_RAPL_POWER_UNIT: u32 = 0x0000_0606;
 const MSR_PKG_ENERGY_STATUS: u32 = 0x0000_0611;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    if !ScaphandreDriver::is_installed()? {
-        eprintln!("Driver not installed. Run ScaphandreDriver::install() from an elevated terminal.");
+    if !MsrDriver::is_installed()? {
+        eprintln!("Driver not installed. Run MsrDriver::install() from an elevated terminal.");
         return Ok(());
     }
 
-    let driver = ScaphandreDriver::new()?;
+    let driver = MsrDriver::new()?;
 
     let unit_raw = driver.read_msr(MSR_RAPL_POWER_UNIT, 0)?;
     let energy_unit_exponent = ((unit_raw >> 8) & 0x1f) as u32;
