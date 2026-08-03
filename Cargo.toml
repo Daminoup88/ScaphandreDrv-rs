@@ -7,6 +7,7 @@ description = "Minimal Rust wrapper around Windows MSR drivers (Scaphandre or Wi
 readme = "README.md"
 keywords = ["windows", "rapl", "msr", "driver", "scaphandre"]
 categories = ["os::windows-apis", "hardware-support"]
+repository = "https://github.com/Daminoup88/msr-driver-rs"
 
 [features]
 default = ["scaphandre"]
